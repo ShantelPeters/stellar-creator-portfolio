@@ -86,16 +86,6 @@ jobs:
           IV=$(openssl rand -hex 12)
           TAG_FILE=tag.bin
 
-          # Encrypt and capture the 16-byte auth tag
-          openssl enc -aes-256-gcm \
-            -K "$OTA_AES_KEY" \
-            -iv "$IV" \
-            -in patch.bin \
-            -out patch.enc \
-            -nosalt
-
-          # openssl writes tag to stderr with -aes-256-gcm; extract via EVP API
-          # For CI simplicity we use a Node helper to get the tag properly
           node -e "
             const crypto = require('crypto');
             const fs = require('fs');
