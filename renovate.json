@@ -12,7 +12,7 @@
   "schedule": ["before 6am on Monday"],
   "prHourlyLimit": 5,
   "prConcurrentLimit": 15,
-  "labels": ["dependencies"],
+  "labels": ["maintenance"],
   "assignees": ["yosemite01"],
   "reviewers": ["yosemite01"],
   "vulnerabilityAlerts": {
@@ -45,7 +45,7 @@
       "description": "Group and label Stellar/Soroban packages for smart-contract review",
       "matchPackagePatterns": ["^@stellar/", "^stellar-", "soroban"],
       "groupName": "Stellar SDK",
-      "labels": ["dependencies", "smart-contract"]
+      "labels": ["maintenance", "smart-contract"]
     },
     {
       "description": "Group all Radix UI packages",
@@ -82,7 +82,7 @@
       "description": "Require manual review for major version bumps",
       "matchUpdateTypes": ["major"],
       "automerge": false,
-      "labels": ["dependencies", "major-update"]
+      "labels": ["maintenance", "enhancement"]
     }
   ]
 }
