@@ -28,7 +28,7 @@ jobs:
           workspaces: backend
 
       - name: Run tests
-        run: cd backend && cargo test --workspace
+        run: cd backend && cargo test --workspace --all-features
 
   build:
     name: Build Contracts
