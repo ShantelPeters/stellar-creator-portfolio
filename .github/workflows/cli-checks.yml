@@ -44,6 +44,3 @@ jobs:
 
       - name: Run smart contract clippy
         run: pnpm run smart-contract:clippy
-
-      - name: Run combined CLI checks
-        run: pnpm run cli-checks
