@@ -13,7 +13,9 @@ members = [
     "contracts/test-utils",
     "services/api",
     "services/auth",
+    "services/common",
     "services/discovery",
+    "services/indexer",
     "services/notifications",
     "tests",
 ]
@@ -73,6 +75,12 @@ dotenvy = "0.15"
 
 # Testing
 tokio-test = "0.4"
+
+# OpenTelemetry (indexer service)
+opentelemetry = "0.22"
+opentelemetry_sdk = { version = "0.22", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.15", features = ["grpc-tonic"] }
+tracing-opentelemetry = "0.23"
 
 [profile.release]
 opt-level = 3
