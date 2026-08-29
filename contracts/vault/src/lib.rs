@@ -135,4 +135,51 @@ mod tests {
         ];
         client.batch_withdraw(&requests); // should panic
     }
+
+    #[test]
+    fn batch_withdraw_happy_path_full_flow() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let recipient = Address::generate(&env);
+
+        client.deposit(&owner, &1000);
+
+        let requests = vec![
+            &env,
+            WithdrawalRequest { owner: owner.clone(), recipient: recipient.clone(), amount: 400 },
+        ];
+
+        let outcomes = client.batch_withdraw(&requests);
+
+        // Every valid request succeeds with the requested amount preserved.
+        assert_eq!(outcomes.len(), 1);
+        let outcome = outcomes.get(0).unwrap();
+        assert!(outcome.success);
+        assert_eq!(outcome.owner, owner);
+        assert_eq!(outcome.amount, 400);
+
+        // Vault balance is debited by exactly the withdrawn amount.
+        assert_eq!(client.balance(&owner), 600);
+    }
+
+    #[test]
+    fn batch_withdraw_skips_zero_amount_request() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        client.deposit(&owner, &500);
+
+        let requests = vec![
+            &env,
+            WithdrawalRequest { owner: owner.clone(), recipient, amount: 0 },
+        ];
+
+        let outcomes = client.batch_withdraw(&requests);
+
+        // Zero-amount requests are recorded as failures without touching state.
+        assert_eq!(outcomes.len(), 1);
+        assert!(!outcomes.get(0).unwrap().success);
+        assert_eq!(outcomes.get(0).unwrap().amount, 0);
+        assert_eq!(client.balance(&owner), 500);
+    }
 }
