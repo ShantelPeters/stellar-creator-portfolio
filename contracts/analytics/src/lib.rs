@@ -5,17 +5,23 @@ use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Env, Stri
 const TTL_THRESHOLD: u32 = 100;
 const TTL_TARGET: u32 = 518_400;
 
+/// Error codes returned by the analytics contract.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Error {
+    /// The requested event was not found on-chain.
     NotFound = 1,
 }
 
+/// A single on-chain analytics event record.
 #[contracttype]
 pub struct AnalyticsEvent {
+    /// Unique identifier of the event.
     pub event_id: u64,
+    /// Ledger timestamp (Unix seconds) when the event was recorded.
     pub timestamp: u64,
+    /// Human-readable event category, e.g. `"bounty_created"`.
     pub event_type: String,
 }
 
@@ -24,6 +30,25 @@ pub struct AnalyticsContract;
 
 #[contractimpl]
 impl AnalyticsContract {
+    /// Records an analytics event on-chain and returns `true` on success.
+    ///
+    /// The event is persisted under its `event_id` together with the current
+    /// ledger timestamp. Recording a second event with the same `event_id`
+    /// overwrites the previous one.
+    ///
+    /// # Arguments
+    ///
+    /// * `env` - Soroban host environment used for persistent storage.
+    /// * `event_id` - Unique identifier for the event.
+    /// * `event_type` - Short human-readable event category, e.g. `"bounty_created"`.
+    ///
+    /// # Preconditions
+    ///
+    /// * `event_type` must not be empty.
+    ///
+    /// # Returns
+    ///
+    /// Always `true` once the event has been persisted and its TTL extended.
     pub fn record_event(env: Env, event_id: u64, event_type: String) -> bool {
         let key = (Symbol::new(&env, "event"), event_id);
         let event = AnalyticsEvent {
@@ -38,6 +63,18 @@ impl AnalyticsContract {
         true
     }
 
+    /// Fetches a previously recorded analytics event by its `event_id`.
+    ///
+    /// # Arguments
+    ///
+    /// * `env` - Soroban host environment used for persistent storage.
+    /// * `event_id` - Identifier of the event to fetch.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(AnalyticsEvent)` when an event exists for `event_id` (its TTL is
+    ///   also refreshed), or
+    /// * `None` when no event was recorded for `event_id`.
     pub fn get_event(env: Env, event_id: u64) -> Option<AnalyticsEvent> {
         let key = (Symbol::new(&env, "event"), event_id);
         let result = env.storage()
