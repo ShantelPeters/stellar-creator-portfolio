@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - 'helm/**'
+      - 'infrastructure/k8s/helm/**'
   push:
     branches: [main, dev]
     paths:
       - 'helm/**'
+      - 'infrastructure/k8s/helm/**'
 
 jobs:
   validate:
@@ -15,27 +17,34 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-        - name: Install Helm
-          uses: azure/setup-helm@v4
-          with:
-            version: v3.14.0
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
 
-        - name: Lint subcharts
-          run: |
-            for chart in helm/charts/*/; do
-              echo "Linting $chart"
-              helm lint "$chart"
-            done
+      - name: Lint subcharts
+        run: |
+          for chart in helm/charts/*/; do
+            echo "Linting $chart"
+            helm lint "$chart"
+          done
 
-        - name: Build dependencies
-          run: helm dependency build helm/
+      - name: Lint infrastructure k8s charts
+        run: |
+          for chart in infrastructure/k8s/helm/*/; do
+            echo "Linting $chart"
+            helm lint "$chart"
+          done
 
-        - name: Lint umbrella chart
-          run: helm lint helm/
+      - name: Build dependencies
+        run: helm dependency build helm/
 
-        - name: Template render (dry-run)
-          run: helm template stellar helm/ --debug > /dev/null
+      - name: Lint umbrella chart
+        run: helm lint helm/
 
-        - name: Validate rendered manifests
-          run: |
-            helm template stellar helm/ | kubectl apply --dry-run=client - f -
+      - name: Template render (dry-run)
+        run: helm template stellar helm/ --debug > /dev/null
+
+      - name: Validate rendered manifests
+        run: |
+          helm template stellar helm/ | kubectl apply --dry-run=client -f -
