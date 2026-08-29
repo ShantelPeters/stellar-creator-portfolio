@@ -159,6 +159,9 @@ export function getInitials(name: string): string {
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase() ?? '')
     .join('');
+}
+
+/**
  * Format a byte count as a human-readable file size (e.g. "4.2 MB").
  * Assumes `bytes` is a non-negative integer; base-1024 units (KB/MB/GB),
  * not base-1000, matching how OS file browsers typically display size.
