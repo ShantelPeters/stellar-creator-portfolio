@@ -19,7 +19,7 @@ use tracing::{error, info, warn};
 use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::{runtime, trace::{self, TracerProvider}, Resource};
+use opentelemetry_sdk::{runtime, trace, Resource};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
 
@@ -829,7 +829,7 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     // Initialize OpenTelemetry
-    let tracer_provider = opentelemetry_otlp::new_pipeline()
+    let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_exporter(
             opentelemetry_otlp::new_exporter()
@@ -845,7 +845,6 @@ async fn main() -> Result<()> {
         .install_batch(runtime::Tokio)
         .expect("Failed to initialize tracer");
 
-    let tracer = tracer_provider.tracer("stellar-indexer");
     let telemetry = OpenTelemetryLayer::new(tracer);
     
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
