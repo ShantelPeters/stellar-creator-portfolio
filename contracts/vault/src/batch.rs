@@ -10,61 +10,75 @@
 // need all-or-nothing semantics, inspect the returned outcomes and roll back
 // at the caller level.
 
-#![no_std]
 use soroban_sdk::{contracterror, contracttype, Address, Env, Vec};
 
 /// A single withdrawal request within a batch.
 #[contracttype]
 #[derive(Clone)]
 pub struct WithdrawalRequest {
-    /// Vault owner authorising this withdrawal.
+    /// Vault owner address authorising this withdrawal.
     pub owner: Address,
-    /// Destination address to receive funds.
+    /// Destination address to receive the withdrawn funds.
     pub recipient: Address,
-    /// Token amount to withdraw (in stroops / base units).
+    /// Token amount to withdraw (in stroops / base units). Must be strictly positive.
     pub amount: i128,
 }
 
-/// Outcome for a single processed withdrawal.
+/// Outcome for a single processed withdrawal in a batch.
 ///
 /// `success` is `false` when the request was skipped due to a zero/negative
-/// amount or an insufficient balance. In those cases `amount` reflects the
-/// requested amount (not debited) so the caller can distinguish the failure.
+/// amount or an insufficient vault balance. In failure cases, `amount` reflects the
+/// original requested amount (not debited) so callers can inspect the failure.
 #[contracttype]
 #[derive(Clone)]
 pub struct WithdrawalOutcome {
+    /// Vault owner address associated with the withdrawal attempt.
     pub owner: Address,
+    /// Requested withdrawal amount.
     pub amount: i128,
-    /// `true`  – funds were debited and the withdrawal event was emitted.
-    /// `false` – the request was invalid; no state was changed for this entry.
+    /// `true`  – funds were successfully debited and the withdrawal event was emitted.
+    /// `false` – the request was invalid or underfunded; no state was changed.
     pub success: bool,
 }
 
-/// Error codes for batch-level failures (e.g. empty batch).
+/// Error codes for batch-level failures.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum BatchError {
+    /// Raised when `process_batch` is called with an empty vector of requests.
     EmptyBatch = 1,
-    /// Kept for ABI / event-log compatibility; no longer used to abort.
+    /// Kept for ABI / event-log compatibility; no longer used to abort batch execution.
     ZeroAmount = 2,
-    /// Kept for ABI / event-log compatibility; no longer used to abort.
+    /// Kept for ABI / event-log compatibility; no longer used to abort batch execution.
     InsufficientBalance = 3,
 }
 
-/// Process a batch of withdrawal requests.
+/// Vectorised batch processor for vault withdrawals.
 ///
-/// Each request is evaluated independently:
-/// - A zero/negative `amount` → `success: false`, balance unchanged.
-/// - An insufficient balance  → `success: false`, balance unchanged.
-/// - Otherwise               → balance debited, event emitted, `success: true`.
+/// Evaluates each withdrawal request independently within a single invocation.
+/// For each entry:
+/// - Verifies `req.owner.require_auth()`.
+/// - Checks if `amount <= 0`: if so, appends `WithdrawalOutcome { success: false }`.
+/// - Reads current balance via `get_balance`: if `current < amount`, appends `WithdrawalOutcome { success: false }`.
+/// - Otherwise, updates balance via `set_balance(env, owner, current - amount)`, emits a `"withdraw"` event,
+///   and appends `WithdrawalOutcome { success: true }`.
 ///
-/// The only hard failure is an **empty** `requests` vec, which panics
-/// immediately (there is nothing meaningful to return).
+/// # Arguments
+/// * `env` - Reference to the Soroban environment (`&Env`).
+/// * `requests` - A [`Vec<WithdrawalRequest>`] containing the withdrawal instructions.
+/// * `get_balance` - Closure taking `(&Env, &Address)` and returning the current balance as an `i128`.
+/// * `set_balance` - Closure taking `(&Env, &Address, i128)` to update stored balance.
 ///
-/// # Auth
-/// `require_auth()` is called once per owner within the loop. Soroban
-/// deduplicates auth checks for the same address within one invocation.
+/// # Returns
+/// * [`Vec<WithdrawalOutcome>`] - Vector of outcome records in the exact order of `requests`.
+///
+/// # Preconditions
+/// * `requests` must contain at least one item. If `requests.is_empty()`, panics immediately with `BatchError::EmptyBatch`.
+/// * Each `req.owner` must authorize the contract call via `req.owner.require_auth()`.
+///
+/// # Events Emitted
+/// * Symbol topic `("withdraw", owner)` with data tuple `(recipient, amount)` for each successful withdrawal.
 pub fn process_batch(
     env: &Env,
     requests: Vec<WithdrawalRequest>,
